@@ -214,3 +214,62 @@ if uploaded:
             st.code((content.text_pages[0] or "").strip()[:3000] or "(brak tekstu)")
         else:
             st.warning("Nie wykryto tekstu. Włącz OCR, jeśli to skanowany dokument.")
+# -------------------------- PRO MODE: Zdjęcie → Excel (wysoka jakość) --------------------------
+# Ten tryb pozwala wgrać zdjęcie lub skan tabeli i zamienić je w plik Excel (.xlsx)
+
+import tempfile
+from typing import Dict
+
+PRO_MODE_AVAILABLE = False
+try:
+    from paddleocr import PPStructure
+    import cv2
+    import numpy as np
+    PRO_MODE_AVAILABLE = True
+except Exception:
+    PRO_MODE_AVAILABLE = False
+
+def pro_extract_tables_from_image(image_bytes: bytes) -> Dict[str, bytes]:
+    """Tworzy plik Excel z tabeli wykrytej na zdjęciu."""
+    if not PRO_MODE_AVAILABLE:
+        return {}
+
+    with tempfile.TemporaryDirectory() as tmp:
+        img_path = os.path.join(tmp, "input.png")
+        with open(img_path, "wb") as f:
+            f.write(image_bytes)
+
+        table_engine = PPStructure(show_log=False, layout=False)
+        result = table_engine(img_path)
+
+        outputs: Dict[str, bytes] = {}
+        for fname in os.listdir(tmp):
+            if fname.lower().endswith(".xlsx"):
+                full = os.path.join(tmp, fname)
+                with open(full, "rb") as xf:
+                    outputs[fname] = xf.read()
+        return outputs
+
+# UI: sekcja dla PRO trybu (zdjęcia)
+with st.expander("🧪 PRO: Zdjęcie/Skany → Excel (PP-Structure)"):
+    st.caption("Użyj tego trybu, jeśli masz zdjęcie lub skan tabeli — najlepsza jakość odwzorowania.")
+    if not PRO_MODE_AVAILABLE:
+        st.warning("Tryb PRO wymaga dodatkowych pakietów: paddleocr, paddlepaddle, opencv-python. Użyj Dockera lub lokalnej instalacji.")
+    img_files = st.file_uploader("Wgraj zdjęcia (JPG/PNG)", type=["jpg", "jpeg", "png"], accept_multiple_files=True)
+    if img_files and PRO_MODE_AVAILABLE:
+        for img in img_files:
+            st.subheader(f"Obraz: {img.name}")
+            data = img.read()
+            with st.spinner("Analizuję obraz i tworzę plik Excel..."):
+                excel_map = pro_extract_tables_from_image(data)
+            if not excel_map:
+                st.error("Nie udało się utworzyć pliku .xlsx — upewnij się, że tabela jest wyraźna i prosta.")
+            else:
+                for fname, blob in excel_map.items():
+                    st.success(f"Gotowy plik: {fname}")
+                    st.download_button(
+                        label=f"⬇️ Pobierz {fname}",
+                        data=blob,
+                        file_name=fname,
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    )
