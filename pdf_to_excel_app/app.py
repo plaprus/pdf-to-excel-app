@@ -203,8 +203,8 @@ if uploaded:
         if content.tables:
             st.markdown("**Podgląd pierwszej wykrytej tabeli:**")
             preview = content.tables[0].copy()
-preview.columns = make_unique_headers(preview.columns)
-st.dataframe(preview.head(20), use_container_width=True)
+            preview.columns = make_unique_headers(preview.columns)
+            st.dataframe(preview.head(20), use_container_width=True)
 
         else:
             st.info("Nie wykryto tabel. Jeśli to skan, spróbuj włączyć OCR lub dostosować parametry.")
