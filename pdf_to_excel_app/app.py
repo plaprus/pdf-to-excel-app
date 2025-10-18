@@ -6,6 +6,23 @@ from typing import List, Tuple
 import streamlit as st
 import pandas as pd
 
+# Funkcja poprawiająca nazwy kolumn, żeby się nie powtarzały
+def make_unique_headers(columns):
+    seen = {}
+    fixed = []
+    for c in columns:
+        name = "" if c is None else str(c).strip()
+        if name == "":
+            name = "col"
+        if name in seen:
+            seen[name] += 1
+            name = f"{name}_{seen[name]}"
+        else:
+            seen[name] = 0
+        fixed.append(name)
+    return fixed
+
+
 # Optional libraries
 enable_pdfplumber = True
 try:
@@ -89,6 +106,7 @@ def extract_with_pdfplumber(file_bytes: bytes) -> ExtractedContent:
                     if not df.empty and df.iloc[0].isna().sum() == 0:
                         df.columns = df.iloc[0]
                         df = df[1:].reset_index(drop=True)
+                        df.columns = make_unique_headers(df.columns)
                 except Exception:
                     continue
                 tables.append(df)
@@ -184,7 +202,10 @@ if uploaded:
 
         if content.tables:
             st.markdown("**Podgląd pierwszej wykrytej tabeli:**")
-            st.dataframe(content.tables[0].head(20), use_container_width=True)
+            preview = content.tables[0].copy()
+preview.columns = make_unique_headers(preview.columns)
+st.dataframe(preview.head(20), use_container_width=True)
+
         else:
             st.info("Nie wykryto tabel. Jeśli to skan, spróbuj włączyć OCR lub dostosować parametry.")
 
